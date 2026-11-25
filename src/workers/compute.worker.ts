@@ -50,10 +50,10 @@ function doMesh(job: MeshJob): void {
   }
   const res: MeshResult = {
     type: 'mesh', cx, cz, epoch: job.epoch,
-    opaque: m.opaque, cutout: m.cutout, translucent: m.translucent, leaves: m.leaves, minY: m.minY, maxY: m.maxY,
+    opaque: m.opaque, cutout: m.cutout, translucent: m.translucent, leaves: m.leaves, groups: m.groups, minY: m.minY, maxY: m.maxY,
     heights, topIds, biomes,
   };
-  self.postMessage(res, [m.opaque.buffer, m.cutout.buffer, m.translucent.buffer, m.leaves.buffer, heights.buffer, topIds.buffer, biomes.buffer]);
+  self.postMessage(res, [m.opaque.buffer, m.cutout.buffer, m.translucent.buffer, m.leaves.buffer, m.groups.buffer, heights.buffer, topIds.buffer, biomes.buffer]);
   const done: MeshDone = { type: 'meshDone', cx, cz, ms: performance.now() - t0 };
   ownerPort!.postMessage(done);
 }

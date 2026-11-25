@@ -43,6 +43,8 @@ export interface MeshResult {
   translucent: Uint32Array;
   /** leaf cubes: alpha-tested near the camera, drawn opaque ("fast") further away */
   leaves: Uint32Array;
+  /** quads per face group for each pass (see mesh/mesher GROUP_ORDER, PASSES) */
+  groups: Uint32Array;
   minY: number;
   maxY: number;
   /** per column summary for ambience/HUD: heights (Int16) and top block ids */

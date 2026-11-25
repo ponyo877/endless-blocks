@@ -10,15 +10,18 @@ import { createTerrainUniforms } from './render/chunkMaterial';
 import { ChunkRenderer } from './render/chunkRenderer';
 import { Clouds } from './render/clouds';
 import { Environment } from './render/environment';
-import { Quality } from './render/quality';
+import { Pacer } from './render/quality';
 import { Sky } from './render/sky';
 import { Streamer } from './render/streamer';
 import { createTextureArrays } from './render/textureArray';
 import { generateTextures } from './render/textures';
 import { Precipitation, Weather } from './render/weather';
 import { MAX_SPEED, Overlay } from './ui/overlay';
+import { Profiler } from './debug/profiler';
 
 const cfg = readConfig();
+const BENCH = cfg.bench > 0;
+const prof = new Profiler();
 const PRE_ROLL = 1500;
 const LEAF_LOD = 88; // blocks: alpha-tested leaves inside, solid leaves beyond // blocks of path behind the start, so reverse works right away
 
@@ -43,15 +46,18 @@ uniforms.uMask.value = texMask;
 
 const chunks = new ChunkRenderer(uniforms);
 scene.add(chunks.group);
-const streamer = new Streamer(cfg.seed, chunks, cfg.renderDistance);
+const streamer = new Streamer(cfg.seed, chunks, cfg.renderDistance, cfg.workers);
 const sky = new Sky(texColor);
+scene.add(sky.root);
 const clouds = new Clouds(cfg.seed);
 scene.add(clouds.group);
 const precip = new Precipitation();
 scene.add(precip.rainMesh, precip.snowMesh);
 const env = new Environment();
 const weather = new Weather();
-const quality = new Quality();
+weather.locked = BENCH;
+const pacer = new Pacer();
+const burnMs = Number([...cfg.exp].find((e) => e.startsWith('burn'))?.slice(4) ?? 0) || 0;
 const ambience = new Ambience();
 
 // ------------------------------------------------------------------ path planning
@@ -67,7 +73,7 @@ const pilot = new Autopilot(path, PRE_ROLL, cfg.speed);
 
 // ------------------------------------------------------------------ UI
 let playing = true;
-let debug = cfg.debug;
+let debug = cfg.debug || BENCH;
 document.body.classList.toggle('debug', debug);
 
 function setSpeed(v: number): void {
@@ -270,7 +276,6 @@ function timeWord(t: number): string {
 }
 
 // ------------------------------------------------------------------ frame loop
-let last = performance.now();
 let started = false;
 let flightTime = 0;
 let clock = 0;
@@ -283,12 +288,19 @@ let dReady = 0;
 let lastNeedSent = requested;
 let cpuMs = 0;
 
+let benchState = 0; // 0 waiting, 1 warm-up, 2 recording, 3 done
+let benchT = 0;
+const gpuPixel = new Uint8Array(4);
+
 function frame(now: number): void {
   requestAnimationFrame(frame);
+  // frame pacing (after the world has settled); benchmarks keep it off unless asked for
+  const pacing = started && flightTime > 8 && (!BENCH || cfg.exp.has('pacer'));
+  if (!pacer.begin(now, pacing)) return;
+  prof.mark(0);
   const t0 = performance.now();
-  const rawMs = now - last;
-  last = now;
-  const dt = Math.min(0.1, rawMs / 1000);
+  const dt = pacer.frameDt(now);
+  const rawMs = pacer.lastInterval;
   if (contextLost) return;
   clock += dt;
   fpsAcc += dt;
@@ -329,6 +341,7 @@ function frame(now: number): void {
   camera.updateMatrixWorld();
   camera.getWorldDirection(viewDir);
 
+  prof.mark(1);
   if (!started) {
     const ring = ringFraction(Math.min(R, 6));
     const prog = 0.3 + 0.7 * Math.min(ring, dReady / 96);
@@ -349,7 +362,7 @@ function frame(now: number): void {
   if (info) skyTemp.v += (info.temp - skyTemp.v) * Math.min(1, dt * 0.2);
 
   // time, weather, environment
-  const dayPos = cfg.startTime + timeOffset + clock / cfg.dayLength;
+  const dayPos = cfg.startTime + timeOffset + (BENCH ? 0 : clock / cfg.dayLength);
   const time = ((dayPos % 1) + 1) % 1;
   weather.update(dt, area.kind);
   env.update({ time, rain: weather.rain, thunder: weather.thunder, flash: weather.flash, skyTemp: skyTemp.v, viewDir });
@@ -367,6 +380,7 @@ function frame(now: number): void {
   camera.far = fogR * 2.2 + 64;
   camera.updateProjectionMatrix();
 
+  prof.mark(2);
   // streaming: centre priorities ahead of us along the path, prefetch a bit further
   const ahead = Math.min(R * CHUNK * 0.5, 32 + 3 * Math.abs(pilot.v));
   const lp = path.sample(pilot.s + dir * ahead, tmpP);
@@ -378,8 +392,10 @@ function frame(now: number): void {
   }
   streamer.prefetch = prefetchPts;
   streamer.update(camera, look, now);
-  chunks.updateLod(camera.position.x, camera.position.z, LEAF_LOD, Math.max(LEAF_LOD, fogR * 0.8));
-  chunks.processUploads(started ? 5 : 12, started ? 1.5e6 : 6e6, () => true);
+  prof.mark(3);
+  const nUploads = chunks.processUploads(started ? 5 : 12, started ? 1.5e6 : 6e6, () => true);
+  chunks.update(camera, LEAF_LOD, Math.max(LEAF_LOD, fogR * 0.8));
+  prof.mark(4);
 
   // sky, clouds, precipitation
   sky.rain = weather.rain;
@@ -387,10 +403,26 @@ function frame(now: number): void {
   clouds.update(camera.position, dt, env.cloudColor, env.fogColor, fogR, 0.8 * (1 - weather.rain * 0.25));
   precip.update(camera.position, dt, weather, env.skyLight);
 
+  prof.mark(5);
+  if (cfg.exp.size) {
+    chunks.group.visible = !cfg.exp.has('nochunks');
+    clouds.group.visible = !cfg.exp.has('noclouds');
+    // simulated slow frames (e.g. exp=burn22): busy-wait to test pacing
+    if (burnMs > 0) for (const t1 = performance.now(); performance.now() - t1 < burnMs; );
+  }
   renderer.clear();
-  renderer.render(sky.scene, sky.camera);
   renderer.render(scene, camera);
+  let gpuMs = 0;
+  if (cfg.gpuSync && prof.recording) {
+    const g0 = performance.now();
+    const gl = renderer.getContext();
+    gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, gpuPixel);
+    gpuMs = performance.now() - g0;
+  }
+  const drawCalls = renderer.info.render.calls;
+  const drawTris = renderer.info.render.triangles;
   cpuMs += (performance.now() - t0 - cpuMs) * 0.05;
+  prof.mark(6);
 
   // ambience
   if (ambience.enabled) {
@@ -416,9 +448,9 @@ function frame(now: number): void {
   const wx = weather.snowVis > 0.3 ? ' · 雪' : weather.rainVis > 0.3 ? (weather.thunder > 0.5 ? ' · 雷雨' : ' · 雨') : '';
   overlay.setPlace(`${area.name} · ${timeWord(time)}${wx}`);
 
-  // adaptive quality (after the world has settled)
-  if (started && flightTime > 8 && quality.update(rawMs, dt)) {
-    const q = quality.current;
+  // frame rate divisor first, then render scale and distance
+  if (pacing && pacer.update(dt)) {
+    const q = pacer.current;
     renderer.setPixelRatio(basePixelRatio * q.scale);
     renderer.setSize(window.innerWidth, window.innerHeight, false);
     streamer.radius = Math.max(6, cfg.renderDistance + q.rdDelta);
@@ -428,7 +460,7 @@ function frame(now: number): void {
     const st = streamer.stats;
     const p = camera.position;
     overlay.hud.textContent =
-      `fps ${fps.toFixed(0)} cpu ${cpuMs.toFixed(1)}ms  p90 ${quality.p90.toFixed(1)}ms  q${quality.level} (x${quality.current.scale} rd ${streamer.radius})\n` +
+      `fps ${fps.toFixed(0)} cpu ${cpuMs.toFixed(1)}ms  miss ${(pacer.missRate * 100).toFixed(0)}%  q${pacer.level} (1/${pacer.current.div} of ${(1000 / pacer.period).toFixed(0)}Hz x${pacer.current.scale} rd ${streamer.radius})\n` +
       `pos ${p.x.toFixed(0)} ${p.y.toFixed(0)} ${p.z.toFixed(0)}  s ${pilot.s.toFixed(0)} / ${path.length}\n` +
       `v ${pilot.v.toFixed(1)} req ${pilot.requested.toFixed(1)} ready ${dReady} (${pilot.readiness.toFixed(2)})\n` +
       `biome ${info ? info.name : '?'}  time ${time.toFixed(3)}  wx ${weather.state} ${weather.rain.toFixed(2)}\n` +
@@ -438,12 +470,31 @@ function frame(now: number): void {
         ? `\nheap ${((performance as unknown as { memory: { usedJSHeapSize: number } }).memory.usedJSHeapSize / 1048576).toFixed(0)}MB`
         : '');
   }
+
+  prof.endFrame(rawMs, nUploads, chunks.lastUploadBytes, drawCalls, drawTris, gpuMs);
+  if (BENCH && started) {
+    benchT += dt;
+    if (benchState === 0) {
+      benchState = 1;
+      benchT = 0;
+    } else if (benchState === 1 && benchT > 3) {
+      benchState = 2;
+      if (cfg.exp.has('freeze')) pilot.paused = true;
+      benchT = 0;
+      prof.start();
+    } else if (benchState === 2 && benchT > cfg.bench) {
+      benchState = 3;
+      const res = prof.summary();
+      (window as unknown as Record<string, unknown>).__benchResult = res;
+      console.log('[bench]', JSON.stringify(res));
+    }
+  }
 }
 requestAnimationFrame(frame);
 
-if (cfg.debug) {
+if (cfg.debug || BENCH) {
   (window as unknown as Record<string, unknown>).__eb = {
-    renderer, scene, chunks, clouds, sky, precip, uniforms, quality, pilot, weather, streamer, camera, env,
+    renderer, scene, chunks, clouds, sky, precip, uniforms, pacer, pilot, weather, streamer, camera, env,
     setTime: (t: number) => {
       timeOffset = t - (cfg.startTime + clock / cfg.dayLength);
     },

@@ -2,8 +2,9 @@ import * as THREE from 'three';
 import { layerInfo } from '../gen/textureNames';
 import type { Environment } from './environment';
 
-// Sky pass, rendered first with a rotation-only camera: gradient + sunset fan (full-screen
-// triangle), square pixel-art sun and moon (texture-array layers), and point stars.
+// Sky: gradient + sunset fan (full-screen triangle), square pixel-art sun and moon (texture-array
+// layers), and point stars. Everything sits at the far plane and is drawn inside the main scene after
+// the opaque terrain, so the depth test rejects the (usually larger) part of the screen that terrain covers.
 
 const skyVert = /* glsl */ `
 precision highp float;
@@ -98,8 +99,9 @@ void main() {
 }`;
 
 export class Sky {
-  readonly scene = new THREE.Scene();
-  readonly camera = new THREE.PerspectiveCamera(70, 1, 1, 1000);
+  /** add to the main scene; follows the camera */
+  readonly root = new THREE.Group();
+  private readonly camera = new THREE.PerspectiveCamera(70, 1, 1, 1000);
   private readonly skyMat: THREE.RawShaderMaterial;
   private readonly sun: THREE.Mesh;
   private readonly moon: THREE.Mesh;
@@ -119,7 +121,7 @@ export class Sky {
       vertexShader: skyVert,
       fragmentShader: skyFrag,
       depthWrite: false,
-      depthTest: false,
+      depthTest: true, // z = w: only where no terrain was drawn
       uniforms: {
         uInvViewProj: { value: this.inv },
         uSky: { value: new THREE.Color() },
@@ -131,10 +133,10 @@ export class Sky {
     });
     const skyMesh = new THREE.Mesh(tri, this.skyMat);
     skyMesh.frustumCulled = false;
-    skyMesh.renderOrder = -10;
-    this.scene.add(skyMesh);
+    skyMesh.renderOrder = 4; // after the opaque terrain (0, 1), before the cloud depth prepass (5)
+    this.root.add(skyMesh);
 
-    this.scene.add(this.celestial);
+    this.root.add(this.celestial);
     const quad = (size: number) => {
       const g = new THREE.PlaneGeometry(size, size);
       return g;
@@ -145,8 +147,9 @@ export class Sky {
         vertexShader: spriteVert,
         fragmentShader: spriteFrag,
         depthWrite: false,
-        depthTest: false,
-        transparent: true,
+        depthTest: true,
+        // opaque list + additive blending: drawn right after the sky gradient and before the clouds
+        transparent: false,
         blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending,
         uniforms: {
           uTex: { value: tex },
@@ -160,11 +163,11 @@ export class Sky {
     this.moonMat = mkSprite(this.moonLayer, true);
     this.sun = new THREE.Mesh(quad(30), this.sunMat);
     this.moon = new THREE.Mesh(quad(22), this.moonMat);
-    this.sun.renderOrder = -8;
-    this.moon.renderOrder = -8;
+    this.sun.renderOrder = 4.2;
+    this.moon.renderOrder = 4.2;
     this.sun.frustumCulled = false;
     this.moon.frustumCulled = false;
-    this.scene.add(this.sun, this.moon);
+    this.root.add(this.sun, this.moon);
 
     // stars
     const N = 1600;
@@ -192,14 +195,14 @@ export class Sky {
       vertexShader: starVert,
       fragmentShader: starFrag,
       depthWrite: false,
-      depthTest: false,
-      transparent: true,
+      depthTest: true,
+      transparent: false,
       blending: THREE.AdditiveBlending,
       uniforms: { uAlpha: { value: 0 }, uPx: { value: 1 } },
     });
     this.stars = new THREE.Points(sg, this.starMat);
     this.stars.frustumCulled = false;
-    this.stars.renderOrder = -9;
+    this.stars.renderOrder = 4.1;
     this.celestial.add(this.stars);
   }
 
@@ -225,10 +228,11 @@ export class Sky {
     (u.uSunDir.value as THREE.Vector3).copy(env.sunDir);
 
     const sd = env.sunDir;
+    this.root.position.copy(main.position);
     this.sun.position.copy(sd).multiplyScalar(100);
-    this.sun.lookAt(0, 0, 0);
+    this.sun.lookAt(main.position);
     this.moon.position.copy(sd).multiplyScalar(-100);
-    this.moon.lookAt(0, 0, 0);
+    this.moon.lookAt(main.position);
     const sunUp = THREE.MathUtils.smoothstep(sd.y, -0.14, 0.03);
     const moonUp = THREE.MathUtils.smoothstep(-sd.y, -0.14, 0.03);
     this.sunMat.uniforms.uAlpha.value = sunUp * (1 - this.rain * 0.9);

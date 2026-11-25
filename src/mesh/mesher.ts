@@ -8,6 +8,8 @@ import { RA, RC, RW } from './region';
 //   w1: u (5b) | v (5b) << 5 | layer (10b) << 10 | shade (3b) << 20 | ao (2b) << 23 | flags (7b) << 25
 //   w2: sky (6b, sum of 4) | blk (6b) << 6 | r (7b) << 12 | g (7b) << 19 | b (6b) << 26
 // Quads are 4 vertices; the index buffer is shared (0,1,2, 2,3,0).
+// Within a pass, quads are grouped by face direction (GROUP_ORDER) so the renderer can skip the
+// directions that face away from the camera for a whole chunk.
 
 export const FLAG_ANIM = 1;
 export const FLAG_WATER = 2;
@@ -24,11 +26,19 @@ export interface MeshInput {
   wz0: number;
 }
 
+/** face groups in buffer order: +X +Z other +Y -X -Z -Y (adjacent groups often face the camera together) */
+export const GROUP_ORDER = [0, 4, 6, 2, 1, 5, 3] as const;
+export const NGROUPS = 7;
+/** passes in MeshOutput.groups order */
+export const PASSES = ['opaque', 'cutout', 'translucent', 'leaves'] as const;
+
 export interface MeshOutput {
   opaque: Uint32Array;
   cutout: Uint32Array;
   translucent: Uint32Array;
   leaves: Uint32Array;
+  /** quads per face group (GROUP_ORDER) for each pass (PASSES): 4 x 7 */
+  groups: Uint32Array;
   minY: number;
   maxY: number;
 }
@@ -36,7 +46,7 @@ export interface MeshOutput {
 class Buf {
   data: Uint32Array;
   n = 0;
-  constructor(cap = 12 * 4096) {
+  constructor(cap = 12 * 512) {
     this.data = new Uint32Array(cap);
   }
   reserve(k: number): void {
@@ -46,14 +56,39 @@ class Buf {
       this.data = d;
     }
   }
-  take(): Uint32Array {
-    const out = this.data.slice(0, this.n);
-    this.n = 0;
+}
+
+/** one render pass: a buffer per face group (box faces by direction, everything else in "other") */
+class Pass {
+  readonly groups: Buf[] = [];
+  /** buffer written by the last emit() (lily pads patch their uvs afterwards) */
+  last: Buf;
+  constructor(readonly sorted: boolean) {
+    for (let g = 0; g < NGROUPS; g++) this.groups.push(new Buf());
+    this.last = this.groups[6];
+  }
+  buf(shade: number): Buf {
+    this.last = this.groups[this.sorted && shade < 6 ? shade : 6];
+    return this.last;
+  }
+  take(counts: Uint32Array, off: number): Uint32Array {
+    let total = 0;
+    for (const b of this.groups) total += b.n;
+    const out = new Uint32Array(total);
+    let p = 0;
+    for (let k = 0; k < NGROUPS; k++) {
+      const b = this.groups[GROUP_ORDER[k]];
+      out.set(b.data.subarray(0, b.n), p);
+      p += b.n;
+      counts[off + k] = b.n / 12;
+      b.n = 0;
+    }
     return out;
   }
 }
 
-const bufs = [new Buf(), new Buf(), new Buf(), new Buf()];
+// cutout holds double-sided plants, so it is never culled by direction
+const passes = [new Pass(true), new Pass(false), new Pass(true), new Pass(true)];
 
 // face: 0 +X, 1 -X, 2 +Y, 3 -Y, 4 +Z, 5 -Z
 const NORMALS = [
@@ -108,8 +143,8 @@ const SHADE_PLANT = 6;
 
 export function buildMesh(inp: MeshInput): MeshOutput {
   const { blocks, light, H, tints, seed, wx0, wz0 } = inp;
-  const [opaque, cutout, translucent, leafBuf] = bufs;
-  opaque.n = cutout.n = translucent.n = leafBuf.n = 0;
+  const [opaque, cutout, translucent, leafBuf] = passes;
+  for (const p of passes) for (const b of p.groups) b.n = 0;
   let minY = 1 << 30;
   let maxY = -1;
 
@@ -148,7 +183,8 @@ export function buildMesh(inp: MeshInput): MeshOutput {
     }
   }
 
-  function emit(buf: Buf, layer: number, shade: number, flags: number, flip: boolean, lx: number, lz: number, by: number): void {
+  function emit(pass: Pass, layer: number, shade: number, flags: number, flip: boolean, lx: number, lz: number, by: number): void {
+    const buf = pass.buf(shade);
     buf.reserve(12);
     const d = buf.data;
     let n = buf.n;
@@ -176,7 +212,7 @@ export function buildMesh(inp: MeshInput): MeshOutput {
    * 2: smooth light + AO sampled around the own cell (partial-height tops).
    */
   function boxFace(
-    buf: Buf, f: number, i: number, y: number, lx: number, lz: number,
+    buf: Pass, f: number, i: number, y: number, lx: number, lz: number,
     x0: number, y0: number, z0: number, x1: number, y1: number, z1: number,
     layer: number, flags: number, mode: number, uvOverride: number[] | null,
   ): void {
@@ -252,7 +288,7 @@ export function buildMesh(inp: MeshInput): MeshOutput {
     emit(buf, layer, f, flags, flip, lx, lz, y);
   }
 
-  function crossPlant(buf: Buf, i: number, y: number, lx: number, lz: number, layer: number, offset: boolean): void {
+  function crossPlant(buf: Pass, i: number, y: number, lx: number, lz: number, layer: number, offset: boolean): void {
     let ox = 0;
     let oz = 0;
     if (offset) {
@@ -385,9 +421,9 @@ export function buildMesh(inp: MeshInput): MeshOutput {
           const h = hash32(wx0 + lx, wz0 + lz, seed, 91) & 3;
           boxFace(buf, 2, i, y, lx, lz, 0, 0, 0, 16, 1, 16, TEX[id * 6 + 2], flags, 1, null);
           if (h) {
-            const n = buf.n;
+            const n = buf.last.n;
             // rotate uv indices by h (cheap: swap u/v pairs on the 4 emitted vertices)
-            const d = buf.data;
+            const d = buf.last.data;
             const us: number[] = [];
             for (let k = 0; k < 4; k++) us.push(d[n - 12 + k * 3 + 1] & 1023);
             for (let k = 0; k < 4; k++) {
@@ -413,11 +449,13 @@ export function buildMesh(inp: MeshInput): MeshOutput {
     }
   }
 
+  const groups = new Uint32Array(4 * NGROUPS);
   return {
-    opaque: opaque.take(),
-    cutout: cutout.take(),
-    translucent: translucent.take(),
-    leaves: leafBuf.take(),
+    opaque: opaque.take(groups, 0),
+    cutout: cutout.take(groups, NGROUPS),
+    translucent: translucent.take(groups, 2 * NGROUPS),
+    leaves: leafBuf.take(groups, 3 * NGROUPS),
+    groups,
     minY: maxY < 0 ? 0 : minY,
     maxY: maxY < 0 ? 0 : maxY,
   };
