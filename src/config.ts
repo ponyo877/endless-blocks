@@ -6,6 +6,14 @@ export interface Config {
   dayLength: number; // seconds per full day
   debug: boolean;
   startTime: number; // 0..1 time of day at start (0 = sunrise)
+  /** profiling run length in seconds (0 = off): fixed weather/time, no adaptive quality */
+  bench: number;
+  /** bench: wait for the GPU after each frame to measure GPU time (distorts pipelining) */
+  gpuSync: boolean;
+  /** compute worker count override (0 = auto) */
+  workers: number;
+  /** comma separated experiment switches for profiling (e.g. "nochunks,noclouds") */
+  exp: Set<string>;
 }
 
 function num(p: URLSearchParams, k: string, d: number): number {
@@ -26,5 +34,9 @@ export function readConfig(): Config {
     dayLength: Math.max(60, num(p, 'daylen', 1200)),
     debug: p.has('debug'),
     startTime: num(p, 'time', 0.08),
+    bench: p.has('bench') ? Math.max(5, num(p, 'bench', 30) || 30) : 0,
+    gpuSync: p.has('gpusync'),
+    workers: Math.max(0, Math.min(16, Math.floor(num(p, 'workers', 0)))),
+    exp: new Set((p.get('exp') ?? '').split(',').filter(Boolean)),
   };
 }

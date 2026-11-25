@@ -34,9 +34,9 @@ export class Streamer {
   /** extra points (future path) to prefetch around */
   prefetch: { x: number; z: number }[] = [];
 
-  constructor(readonly seed: number, readonly renderer: ChunkRenderer, radius: number) {
+  constructor(readonly seed: number, readonly renderer: ChunkRenderer, radius: number, workers = 0) {
     this.radius = radius;
-    const n = Math.max(2, Math.min(6, (navigator.hardwareConcurrency || 4) - 2));
+    const n = workers || Math.max(2, Math.min(6, (navigator.hardwareConcurrency || 4) - 2));
     this.owner = new Worker(new URL('../workers/owner.worker.ts', import.meta.url), { type: 'module' });
     const ports: MessagePort[] = [];
     for (let i = 0; i < n; i++) {

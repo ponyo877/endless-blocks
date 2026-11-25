@@ -11,6 +11,8 @@ function rand(a: number, b: number): number {
 
 export class Weather {
   state: State = 'clear';
+  /** benchmarks: keep the sky clear */
+  locked = false;
   /** smoothed overcast / precipitation strength 0..1 */
   rain = 0;
   thunder = 0;
@@ -37,6 +39,10 @@ export class Weather {
    * Returns true when a lightning flash starts this frame.
    */
   update(dt: number, kind: 'rain' | 'snow' | 'none'): boolean {
+    if (this.locked) {
+      this.rain = this.thunder = this.flash = this.rainVis = this.snowVis = 0;
+      return false;
+    }
     this.timer -= dt;
     if (this.timer <= 0) {
       if (this.state === 'clear') {
