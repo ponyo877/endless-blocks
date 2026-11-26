@@ -9,7 +9,7 @@ Open it, lean back, and watch. It runs in your browser, forever.</p>
 
 <p>
 <a href="https://endless-blocks.ponyo877.com"><img alt="Live demo" src="https://img.shields.io/badge/demo-live-2ea44f?style=flat-square&logo=googlechrome&logoColor=white"></a>
-<a href="https://github.com/ponyo877/endless-blocks/actions/workflows/pages.yml"><img alt="Deploy status" src="https://img.shields.io/github/actions/workflow/status/ponyo877/endless-blocks/pages.yml?branch=main&style=flat-square&logo=githubactions&logoColor=white&label=deploy"></a>
+<a href="https://github.com/ponyo877/endless-blocks/actions/workflows/pages.yml"><img alt="Deploy status" src="https://github.com/ponyo877/endless-blocks/actions/workflows/pages.yml/badge.svg?branch=main"></a>
 <a href="LICENSE"><img alt="MIT License" src="https://img.shields.io/badge/license-MIT-blue?style=flat-square"></a>
 <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white">
 <img alt="three.js" src="https://img.shields.io/badge/three.js-000000?style=flat-square&logo=threedotjs&logoColor=white">
