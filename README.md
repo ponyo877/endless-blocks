@@ -85,15 +85,17 @@ For example, [`?seed=31415&speed=24&time=0.45`](https://endless-blocks.ponyo877.
 ## How it works
 
 ```mermaid
-flowchart LR
+flowchart TB
+  planner["Planner worker<br/>route and altitude"]
   subgraph main["Main thread"]
-    direction TB
     pilot["Autopilot<br/>arc length s → camera pose"]
     gl["Renderer<br/>three.js + GLSL3"]
   end
-  planner["Planner worker<br/>route and altitude"] -- "path samples" --> pilot
-  gl -- "chunks wanted" --> owner["Owner worker<br/>chunk store, job queue"]
-  owner -- "generate / light + mesh jobs" --> compute["Compute workers × N"]
+  owner["Owner worker<br/>chunk store, job queue"]
+  compute["Compute workers × N<br/>generate, light, mesh"]
+  planner -- "path samples" --> pilot
+  gl -- "chunks wanted" --> owner
+  owner -- "jobs" --> compute
   compute -- "voxels" --> owner
   compute -- "packed vertices" --> gl
 ```
