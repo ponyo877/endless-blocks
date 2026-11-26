@@ -263,16 +263,16 @@ function sampleArea(): void {
     area.kind = info ? info.precip : 'rain';
     // high mountains get snow instead of rain
     if (area.kind === 'rain' && camera.position.y > 200 && info && info.temp < 0.6) area.kind = 'snow';
-    area.name = info ? info.ja : '';
+    area.name = info ? info.name : '';
   }
 }
 
 function timeWord(t: number): string {
-  if (t < 0.04 || t > 0.96) return '夜明け';
-  if (t < 0.2) return '朝';
-  if (t < 0.42) return '昼';
-  if (t < 0.54) return '夕方';
-  return '夜';
+  if (t < 0.04 || t > 0.96) return 'Dawn';
+  if (t < 0.2) return 'Morning';
+  if (t < 0.42) return 'Day';
+  if (t < 0.54) return 'Evening';
+  return 'Night';
 }
 
 // ------------------------------------------------------------------ frame loop
@@ -445,7 +445,7 @@ function frame(now: number): void {
   // UI
   overlay.tick(dt);
   overlay.setSpeed(pilot.requested, pilot.v);
-  const wx = weather.snowVis > 0.3 ? ' · 雪' : weather.rainVis > 0.3 ? (weather.thunder > 0.5 ? ' · 雷雨' : ' · 雨') : '';
+  const wx = weather.snowVis > 0.3 ? ' · Snow' : weather.rainVis > 0.3 ? (weather.thunder > 0.5 ? ' · Thunderstorm' : ' · Rain') : '';
   overlay.setPlace(`${area.name} · ${timeWord(time)}${wx}`);
 
   // frame rate divisor first, then render scale and distance

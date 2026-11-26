@@ -49,7 +49,7 @@ https://github.com/user-attachments/assets/2bc1ce30-9ed6-40be-9376-1f0f27841912
   </tr>
   <tr>
     <td width="50%" align="center"><img src=".github/assets/rain.jpg" alt="A thunderstorm over a flower meadow and a river"><br><sub>Thunderstorm</sub></td>
-    <td width="50%" align="center"><img src=".github/assets/snow.jpg" alt="Snow falling over ice spikes and a frozen river"><br><sub>Ice spikes in the snow</sub></td>
+    <td width="50%" align="center"><img src=".github/assets/snow.jpg" alt="Snow falling over ice spires and a frozen river"><br><sub>Ice spires in the snow</sub></td>
   </tr>
 </table>
 

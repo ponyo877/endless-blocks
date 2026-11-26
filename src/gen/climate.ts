@@ -132,8 +132,8 @@ export type Precip = 'rain' | 'snow' | 'none';
 
 export interface BiomeInfo {
   id: number;
+  /** display name */
   name: string;
-  ja: string;
   temp: number; // 0..1 for colour, snow below 0.15
   downfall: number; // 0..1
   precip: Precip;
@@ -146,49 +146,49 @@ export interface BiomeInfo {
 
 const W_DEFAULT: [number, number, number] = [63, 118, 228];
 
-function bi(id: number, name: string, ja: string, temp: number, downfall: number, precip: Precip, extra: Partial<BiomeInfo> = {}): BiomeInfo {
-  return { id, name, ja, temp, downfall, precip, water: W_DEFAULT, ...extra };
+function bi(id: number, name: string, temp: number, downfall: number, precip: Precip, extra: Partial<BiomeInfo> = {}): BiomeInfo {
+  return { id, name, temp, downfall, precip, water: W_DEFAULT, ...extra };
 }
 
 export const BIOMES: BiomeInfo[] = [
-  bi(Biome.OCEAN, 'Ocean', '海', 0.5, 0.5, 'rain', { ocean: true }),
-  bi(Biome.WARM_OCEAN, 'Warm Ocean', '暖かい海', 0.5, 0.5, 'rain', { ocean: true, water: [67, 213, 238] }),
-  bi(Biome.LUKEWARM_OCEAN, 'Lukewarm Ocean', 'ぬるい海', 0.5, 0.5, 'rain', { ocean: true, water: [69, 173, 242] }),
-  bi(Biome.COLD_OCEAN, 'Cold Ocean', '冷たい海', 0.5, 0.5, 'rain', { ocean: true, water: [61, 87, 214] }),
-  bi(Biome.FROZEN_OCEAN, 'Frozen Ocean', '凍った海', 0.0, 0.5, 'snow', { ocean: true, water: [57, 56, 201] }),
-  bi(Biome.RIVER, 'River', '川', 0.5, 0.5, 'rain', { river: true }),
-  bi(Biome.FROZEN_RIVER, 'Frozen River', '凍った川', 0.0, 0.5, 'snow', { river: true, water: [57, 56, 201] }),
-  bi(Biome.BEACH, 'Beach', '砂浜', 0.8, 0.4, 'rain'),
-  bi(Biome.SNOWY_BEACH, 'Snowy Beach', '雪の砂浜', 0.05, 0.3, 'snow', { water: [61, 87, 214] }),
-  bi(Biome.STONY_SHORE, 'Stony Shore', '石の海岸', 0.2, 0.3, 'rain'),
-  bi(Biome.PLAINS, 'Plains', '平原', 0.8, 0.4, 'rain'),
-  bi(Biome.SUNFLOWER_PLAINS, 'Flower Plains', '花の平原', 0.8, 0.4, 'rain'),
-  bi(Biome.SNOWY_PLAINS, 'Snowy Plains', '雪原', 0.0, 0.5, 'snow'),
-  bi(Biome.ICE_SPIKES, 'Ice Spikes', '氷樹', 0.0, 0.5, 'snow'),
-  bi(Biome.FOREST, 'Forest', '森林', 0.7, 0.8, 'rain'),
-  bi(Biome.FLOWER_FOREST, 'Flower Forest', '花の森', 0.7, 0.8, 'rain'),
-  bi(Biome.BIRCH_FOREST, 'Birch Forest', '白樺の森', 0.6, 0.6, 'rain'),
-  bi(Biome.DARK_FOREST, 'Dark Forest', '暗い森', 0.7, 0.8, 'rain', { grass: [80, 122, 50], foliage: [62, 110, 38] }),
-  bi(Biome.TAIGA, 'Taiga', 'タイガ', 0.25, 0.8, 'rain'),
-  bi(Biome.SNOWY_TAIGA, 'Snowy Taiga', '雪のタイガ', 0.0, 0.4, 'snow', { water: [61, 87, 214] }),
-  bi(Biome.GIANT_TAIGA, 'Old Growth Taiga', '巨大なタイガ', 0.3, 0.8, 'rain'),
-  bi(Biome.SAVANNA, 'Savanna', 'サバンナ', 1.0, 0.0, 'none'),
-  bi(Biome.SAVANNA_PLATEAU, 'Savanna Plateau', 'サバンナの台地', 1.0, 0.0, 'none'),
-  bi(Biome.DESERT, 'Desert', '砂漠', 1.0, 0.0, 'none'),
-  bi(Biome.BADLANDS, 'Badlands', '荒野', 1.0, 0.0, 'none', { grass: [144, 129, 77], foliage: [158, 129, 77] }),
-  bi(Biome.WOODED_BADLANDS, 'Wooded Badlands', '森のある荒野', 1.0, 0.0, 'none', { grass: [144, 129, 77], foliage: [158, 129, 77] }),
-  bi(Biome.JUNGLE, 'Jungle', 'ジャングル', 0.95, 0.9, 'rain'),
-  bi(Biome.SPARSE_JUNGLE, 'Sparse Jungle', 'まばらなジャングル', 0.95, 0.8, 'rain'),
-  bi(Biome.SWAMP, 'Swamp', '湿地', 0.8, 0.9, 'rain', { grass: [106, 112, 57], foliage: [106, 112, 57], water: [97, 123, 100] }),
-  bi(Biome.MUSHROOM_FIELDS, 'Mushroom Fields', 'キノコ島', 0.9, 1.0, 'rain'),
-  bi(Biome.MEADOW, 'Meadow', '草地', 0.5, 0.8, 'rain', { water: [14, 78, 207] }),
-  bi(Biome.CHERRY_GROVE, 'Cherry Grove', '桜の林', 0.5, 0.8, 'rain', { grass: [182, 219, 97], foliage: [182, 219, 97], water: [93, 183, 239] }),
-  bi(Biome.SNOWY_SLOPES, 'Snowy Slopes', '雪の斜面', 0.0, 0.9, 'snow'),
-  bi(Biome.GROVE, 'Grove', '林', 0.05, 0.8, 'snow'),
-  bi(Biome.FROZEN_PEAKS, 'Frozen Peaks', '凍った山頂', 0.0, 0.9, 'snow'),
-  bi(Biome.JAGGED_PEAKS, 'Jagged Peaks', '尖った山頂', 0.0, 0.9, 'snow'),
-  bi(Biome.STONY_PEAKS, 'Stony Peaks', '石だらけの山頂', 1.0, 0.3, 'rain'),
-  bi(Biome.WINDSWEPT_HILLS, 'Windswept Hills', '吹きさらしの丘', 0.2, 0.3, 'rain'),
+  bi(Biome.OCEAN, 'Ocean', 0.5, 0.5, 'rain', { ocean: true }),
+  bi(Biome.WARM_OCEAN, 'Warm Ocean', 0.5, 0.5, 'rain', { ocean: true, water: [67, 213, 238] }),
+  bi(Biome.LUKEWARM_OCEAN, 'Mild Ocean', 0.5, 0.5, 'rain', { ocean: true, water: [69, 173, 242] }),
+  bi(Biome.COLD_OCEAN, 'Cold Ocean', 0.5, 0.5, 'rain', { ocean: true, water: [61, 87, 214] }),
+  bi(Biome.FROZEN_OCEAN, 'Frozen Ocean', 0.0, 0.5, 'snow', { ocean: true, water: [57, 56, 201] }),
+  bi(Biome.RIVER, 'River', 0.5, 0.5, 'rain', { river: true }),
+  bi(Biome.FROZEN_RIVER, 'Frozen River', 0.0, 0.5, 'snow', { river: true, water: [57, 56, 201] }),
+  bi(Biome.BEACH, 'Beach', 0.8, 0.4, 'rain'),
+  bi(Biome.SNOWY_BEACH, 'Snowy Beach', 0.05, 0.3, 'snow', { water: [61, 87, 214] }),
+  bi(Biome.STONY_SHORE, 'Rocky Coast', 0.2, 0.3, 'rain'),
+  bi(Biome.PLAINS, 'Plains', 0.8, 0.4, 'rain'),
+  bi(Biome.SUNFLOWER_PLAINS, 'Flower Plains', 0.8, 0.4, 'rain'),
+  bi(Biome.SNOWY_PLAINS, 'Snowfield', 0.0, 0.5, 'snow'),
+  bi(Biome.ICE_SPIKES, 'Ice Spires', 0.0, 0.5, 'snow'),
+  bi(Biome.FOREST, 'Forest', 0.7, 0.8, 'rain'),
+  bi(Biome.FLOWER_FOREST, 'Wildflower Forest', 0.7, 0.8, 'rain'),
+  bi(Biome.BIRCH_FOREST, 'Birch Forest', 0.6, 0.6, 'rain'),
+  bi(Biome.DARK_FOREST, 'Deep Forest', 0.7, 0.8, 'rain', { grass: [80, 122, 50], foliage: [62, 110, 38] }),
+  bi(Biome.TAIGA, 'Taiga', 0.25, 0.8, 'rain'),
+  bi(Biome.SNOWY_TAIGA, 'Snowy Taiga', 0.0, 0.4, 'snow', { water: [61, 87, 214] }),
+  bi(Biome.GIANT_TAIGA, 'Giant Taiga', 0.3, 0.8, 'rain'),
+  bi(Biome.SAVANNA, 'Savanna', 1.0, 0.0, 'none'),
+  bi(Biome.SAVANNA_PLATEAU, 'Savanna Plateau', 1.0, 0.0, 'none'),
+  bi(Biome.DESERT, 'Desert', 1.0, 0.0, 'none'),
+  bi(Biome.BADLANDS, 'Badlands', 1.0, 0.0, 'none', { grass: [144, 129, 77], foliage: [158, 129, 77] }),
+  bi(Biome.WOODED_BADLANDS, 'Badland Woods', 1.0, 0.0, 'none', { grass: [144, 129, 77], foliage: [158, 129, 77] }),
+  bi(Biome.JUNGLE, 'Jungle', 0.95, 0.9, 'rain'),
+  bi(Biome.SPARSE_JUNGLE, 'Open Jungle', 0.95, 0.8, 'rain'),
+  bi(Biome.SWAMP, 'Swamp', 0.8, 0.9, 'rain', { grass: [106, 112, 57], foliage: [106, 112, 57], water: [97, 123, 100] }),
+  bi(Biome.MUSHROOM_FIELDS, 'Mushroom Isle', 0.9, 1.0, 'rain'),
+  bi(Biome.MEADOW, 'Meadow', 0.5, 0.8, 'rain', { water: [14, 78, 207] }),
+  bi(Biome.CHERRY_GROVE, 'Cherry Woods', 0.5, 0.8, 'rain', { grass: [182, 219, 97], foliage: [182, 219, 97], water: [93, 183, 239] }),
+  bi(Biome.SNOWY_SLOPES, 'Snowy Slopes', 0.0, 0.9, 'snow'),
+  bi(Biome.GROVE, 'Snowy Woods', 0.05, 0.8, 'snow'),
+  bi(Biome.FROZEN_PEAKS, 'Icy Peaks', 0.0, 0.9, 'snow'),
+  bi(Biome.JAGGED_PEAKS, 'Sharp Peaks', 0.0, 0.9, 'snow'),
+  bi(Biome.STONY_PEAKS, 'Rocky Peaks', 1.0, 0.3, 'rain'),
+  bi(Biome.WINDSWEPT_HILLS, 'Windy Hills', 0.2, 0.3, 'rain'),
 ];
 
 function band(v: number, a: number, b: number, c: number, d: number): number {

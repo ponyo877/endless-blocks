@@ -54,23 +54,23 @@ export class Overlay {
         <div class="ov-place"></div>
       </div>
       <div class="ov-bar">
-        <button class="ov-btn" data-a="play" title="再生 / 停止 (Space)"></button>
+        <button class="ov-btn" data-a="play" title="Play / pause (Space)"></button>
         <div class="ov-speed">
           <span class="ov-rev">◀</span>
-          <input type="range" min="-1" max="1" step="0.001" aria-label="速度" />
+          <input type="range" min="-1" max="1" step="0.001" aria-label="Speed" />
           <span class="ov-fwd">▶</span>
           <span class="ov-speed-label"></span>
         </div>
-        <button class="ov-btn" data-a="sound" title="環境音 (M)"></button>
-        <button class="ov-btn" data-a="full" title="フルスクリーン (F)">${ICON.full}</button>
+        <button class="ov-btn" data-a="sound" title="Ambient sound (M)"></button>
+        <button class="ov-btn" data-a="full" title="Fullscreen (F)">${ICON.full}</button>
         <span class="ov-sep"></span>
-        <span class="ov-seed" title="シード"></span>
-        <button class="ov-btn" data-a="seed" title="新しいワールド (N)">${ICON.seed}</button>
-        <button class="ov-btn" data-a="link" title="このワールドのリンクをコピー">${ICON.link}</button>
+        <span class="ov-seed" title="Seed"></span>
+        <button class="ov-btn" data-a="seed" title="New world (N)">${ICON.seed}</button>
+        <button class="ov-btn" data-a="link" title="Copy a link to this world">${ICON.link}</button>
       </div>
-      <div class="ov-help">Space 再生/停止 · ↑↓ 加速/後退 · ホイール 速度 · F 全画面 · M 音 · H UIを隠す · N 新しいワールド · I 情報</div>
+      <div class="ov-help">Space play/pause · ↑↓ faster/reverse · Wheel fine speed · F fullscreen · M sound · H hide UI · N new world · I info</div>
       <div class="ov-toast"></div>
-      <div class="ov-loading"><div class="ov-loading-text">ワールドを生成しています</div><div class="ov-loading-track"><div class="ov-loading-bar"></div></div></div>
+      <div class="ov-loading"><div class="ov-loading-text">Generating world</div><div class="ov-loading-track"><div class="ov-loading-bar"></div></div></div>
       <pre class="ov-hud"></pre>
     `;
     parent.appendChild(root);
@@ -94,7 +94,7 @@ export class Overlay {
     q<HTMLButtonElement>('[data-a=seed]').onclick = () => h.newSeed();
     q<HTMLButtonElement>('[data-a=link]').onclick = async () => {
       const ok = await h.copyLink();
-      this.showToast(ok ? 'リンクをコピーしました' : 'コピーできませんでした');
+      this.showToast(ok ? 'Link copied' : 'Could not copy the link');
     };
     this.slider.addEventListener('input', () => h.setSpeed(sliderToSpeed(Number(this.slider.value))));
     this.slider.addEventListener('pointerdown', () => (this.dragging = true));
