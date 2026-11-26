@@ -1,73 +1,155 @@
-# Endless Blocks
+<div align="center">
 
-An endless flight over an infinite, procedurally generated blocky world — inspired by the never-ending zoom of organiccity.org.
-The camera flies on autopilot forever; you only choose the pace.
+<a href="https://endless-blocks.ponyo877.com"><img src=".github/assets/hero.webp" width="100%" alt="The camera glides over a river winding into the sea, past a sandy beach and forested hills"></a>
 
-## 操作
+<h1>Endless Blocks</h1>
 
-| 操作 | 動作 |
-|---|---|
-| Space | 再生 / 停止 |
-| ↑ / ↓ (長押し) | 加速 / 減速・後退 |
-| ホイール | 速度の微調整 |
-| 速度スライダー | 左側は後退。ダブルクリックで既定速度 (8 m/s) |
-| F | フルスクリーン |
-| M | 環境音 ON/OFF (初期 OFF) |
-| H | UI を隠す |
-| N | 新しいワールド |
-| I | デバッグ情報 (fps, チャンク数など) |
+<p><strong>A never-ending autopilot flight over an infinite, procedurally generated block world.</strong><br>
+Open it, lean back, and watch. It runs in your browser, forever.</p>
 
-URL パラメータ:
+<p>
+<a href="https://endless-blocks.ponyo877.com"><img alt="Live demo" src="https://img.shields.io/badge/demo-live-2ea44f?style=flat-square&logo=googlechrome&logoColor=white"></a>
+<a href="https://github.com/ponyo877/endless-blocks/actions/workflows/pages.yml"><img alt="Deploy status" src="https://img.shields.io/github/actions/workflow/status/ponyo877/endless-blocks/pages.yml?branch=main&style=flat-square&logo=githubactions&logoColor=white&label=deploy"></a>
+<a href="LICENSE"><img alt="MIT License" src="https://img.shields.io/badge/license-MIT-blue?style=flat-square"></a>
+<img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white">
+<img alt="three.js" src="https://img.shields.io/badge/three.js-000000?style=flat-square&logo=threedotjs&logoColor=white">
+<img alt="WebGL 2" src="https://img.shields.io/badge/WebGL-2.0-990000?style=flat-square&logo=webgl&logoColor=white">
+<img alt="Size: about 220 kB gzipped" src="https://img.shields.io/badge/size-220%20kB%20gzipped-orange?style=flat-square">
+</p>
 
-| パラメータ | 意味 | 既定値 |
-|---|---|---|
-| `seed` | ワールドのシード (同じ値なら同じ世界・同じ飛行経路) | ランダム |
-| `speed` | 初期速度 [blocks/s] | 8 |
-| `rd` | 描画距離 [チャンク] | 12 |
-| `daylen` | 1 日の長さ [秒] | 1200 |
-| `time` | 開始時刻 (0 = 日の出, 0.25 = 正午, 0.5 = 日没) | 0.08 |
-| `debug` | デバッグ表示 | — |
+<p>
+<a href="https://endless-blocks.ponyo877.com"><b>Launch</b></a>
+&nbsp;·&nbsp;
+<a href="#demo">Demo</a>
+&nbsp;·&nbsp;
+<a href="#how-it-works">How it works</a>
+&nbsp;·&nbsp;
+<a href="#development">Development</a>
+</p>
 
-## 開発
+</div>
+
+## Highlights
+
+- **Infinite and reproducible.** Every seed is its own world. Terrain, biomes, caves, trees and villages are pure functions of the seed and the position, so a shared link always replays the same flight.
+- **38 biomes.** A multi-noise climate model (temperature, humidity, continentalness, erosion, weirdness) drives 3D density terrain, cheese and spaghetti caves, rivers, oceans, and small villages, desert pyramids and ruined watchtowers.
+- **A camera that never crashes.** A planner worker looks ahead with a beam search that favours valleys, rivers and coastlines, and keeps the camera above every block, tree and roof. Fly backwards and it retraces the exact same path.
+- **Classic look, original art.** Smooth lighting and ambient occlusion, biome tints, animated water, 3D clouds, fog, a pixel-art sun and moon, a day–night cycle, rain, thunderstorms and snow.
+- **Zero assets.** Every texture and sound is generated in code at startup. The whole app is about 220 kB of gzipped JavaScript.
+- **Smooth for hours.** Generation and meshing run on Web Workers, and frames are paced to whole display refreshes. Under load it settles at a steady lower frame rate before it touches resolution or draw distance.
+
+## Demo
+
+https://github.com/user-attachments/assets/2bc1ce30-9ed6-40be-9376-1f0f27841912
+
+<table>
+  <tr>
+    <td width="50%" align="center"><img src=".github/assets/sunset.jpg" alt="The sun setting over a river valley"><br><sub>Golden hour</sub></td>
+    <td width="50%" align="center"><img src=".github/assets/night.jpg" alt="A lantern-lit village under a full moon"><br><sub>A village at night</sub></td>
+  </tr>
+  <tr>
+    <td width="50%" align="center"><img src=".github/assets/rain.jpg" alt="A thunderstorm over a flower meadow and a river"><br><sub>Thunderstorm</sub></td>
+    <td width="50%" align="center"><img src=".github/assets/snow.jpg" alt="Snow falling over ice spikes and a frozen river"><br><sub>Ice spikes in the snow</sub></td>
+  </tr>
+</table>
+
+All footage is rendered by the app itself. Try the same places with [`?seed=31415`](https://endless-blocks.ponyo877.com/?seed=31415).
+
+## Controls
+
+| Input | Action |
+| --- | --- |
+| <kbd>Space</kbd> | Play / pause |
+| <kbd>↑</kbd> / <kbd>↓</kbd> (hold) | Speed up / slow down, then fly backwards |
+| Mouse wheel | Fine-tune the speed |
+| Speed slider | Left of centre flies backwards. Double-click resets to 8 blocks/s |
+| <kbd>F</kbd> | Fullscreen |
+| <kbd>M</kbd> | Ambient sound (off by default) |
+| <kbd>H</kbd> | Hide the UI |
+| <kbd>N</kbd> | New world |
+| <kbd>I</kbd> | Debug overlay |
+
+### URL parameters
+
+| Parameter | Description | Default |
+| --- | --- | --- |
+| `seed` | World seed. The same seed gives the same world and the same flight | random |
+| `speed` | Initial speed in blocks/s. Negative values fly backwards | `8` |
+| `rd` | Render distance in chunks (4–24) | `12` |
+| `daylen` | Length of one day in seconds | `1200` |
+| `time` | Start time of day: `0` sunrise, `0.25` noon, `0.5` sunset | `0.08` |
+| `debug` | Show the debug overlay | — |
+
+For example, [`?seed=31415&speed=24&time=0.45`](https://endless-blocks.ponyo877.com/?seed=31415&speed=24&time=0.45) flies faster towards an evening sky.
+
+## How it works
+
+```mermaid
+flowchart LR
+  subgraph main["Main thread"]
+    direction TB
+    pilot["Autopilot<br/>arc length s → camera pose"]
+    gl["Renderer<br/>three.js + GLSL3"]
+  end
+  planner["Planner worker<br/>route and altitude"] -- "path samples" --> pilot
+  gl -- "chunks wanted" --> owner["Owner worker<br/>chunk store, job queue"]
+  owner -- "generate / light + mesh jobs" --> compute["Compute workers × N"]
+  compute -- "voxels" --> owner
+  compute -- "packed vertices" --> gl
+```
+
+| Part | What it does |
+| --- | --- |
+| **World generation**<br>[`src/gen`](src/gen) | Seeded Perlin noise feeds five climate parameters that pick a biome. Splines turn them into a 3D density field, sampled on a 4×8×4 lattice and interpolated, then carved by caves and dressed with surface rules, trees, plants and structures. Everything is deterministic and order-independent. |
+| **Streaming**<br>[`src/workers`](src/workers) | The owner worker stores compressed chunks and schedules jobs by distance along the flight path. Compute workers generate chunks, then light and mesh each one from its 3×3 neighbourhood. The main thread never touches voxels; it only receives packed 12-byte vertices. |
+| **Autopilot**<br>[`src/autopilot`](src/autopilot) | The route depends only on the seed and the distance flown. It is smoothed into a C²-continuous B-spline, and its altitude profile clears every block in a corridor around the path. The camera state is a single float64 `s`, so reversing retraces the flight exactly. |
+| **Rendering**<br>[`src/render`](src/render) | Chunk faces are grouped by direction, and only the directions that can face the camera are drawn, in one `WEBGL_multi_draw` call. Chunks are culled by their bounding boxes. The sky is drawn last at the far plane, so the GPU skips every pixel hidden by terrain. |
+| **Frame pacing**<br>[`quality.ts`](src/render/quality.ts) | Frame times are rounded to whole display refreshes, which removes judder from `requestAnimationFrame` jitter. Under load it first renders every other refresh, and only then lowers resolution and render distance. |
+
+## Development
+
+Requires Node.js 22 or later and a browser with WebGL 2.
 
 ```sh
 npm install
-npm run dev       # http://localhost:5173
-npm test          # 生成の決定性・メッシュ・経路の安全性テスト
-npm run build     # dist/ に静的ファイルを出力 (どこにでも置ける。特別なヘッダは不要)
-npx vite preview  # ビルド結果の確認
+npm run dev        # http://localhost:5173
+npm test           # determinism, meshing, path safety and frame pacing
+npm run build      # static site in dist/, no special headers needed
+npm run preview    # serve the build
 ```
 
-### 性能の計測
+Every push to `main` is tested, built and deployed to GitHub Pages by [`pages.yml`](.github/workflows/pages.yml).
 
-`?bench=30` を付けて開くと、時刻と天候を固定して 30 秒間のフレームを記録し、結果を `window.__benchResult` とコンソール (`[bench]`) に出す。記録はワールドの準備ができてから 3 秒後に始まる。
+<details>
+<summary><b>Profiling</b></summary>
+
+<br>
+
+Add `bench=N` to record N seconds of frames with fixed time and weather. Recording starts 3 seconds after the world is ready. The summary goes to `window.__benchResult` and to the console under `[bench]`.
 
 ```
-http://localhost:4173/?seed=12345&speed=16&bench=30&time=0.15
+http://localhost:5173/?seed=12345&speed=16&bench=30&time=0.15
 ```
 
-結果にはフレーム間隔の分布 (p50/p90/p99/max)、カクツキの回数 (>20/33/50/100 ms)、処理段階ごとの CPU 時間、アップロード量、描画コール数と三角形数、GC、long task が入る。
+It reports frame-interval percentiles, stutter counts (over 20, 33, 50 and 100 ms), CPU time per stage, upload volume, draw calls, triangles, GC and long tasks.
 
-計測用の追加パラメータ:
+| Parameter | Effect |
+| --- | --- |
+| `exp=freeze` | Stop the camera when recording starts, to measure one spot |
+| `exp=nochunks` / `exp=noclouds` | Skip terrain / clouds |
+| `exp=pacer` | Keep frame pacing on during the benchmark (off by default) |
+| `exp=burn22` | Waste 22 ms of CPU per frame to emulate a slow machine |
+| `workers=N` | Fix the number of compute workers |
+| `gpusync` | Wait for the GPU after each frame and record GPU time (breaks pipelining; for comparison only) |
 
-| パラメータ | 意味 |
-|---|---|
-| `exp=freeze` | 記録開始と同時にカメラを止める (場所ごとの描画負荷を見る) |
-| `exp=nochunks` / `exp=noclouds` | 地形 / 雲を描かない |
-| `exp=pacer` | ベンチ中もフレームペーシングを有効にする (既定では無効) |
-| `exp=burn22` | 毎フレーム 22 ms CPU を浪費して重い環境を再現する |
-| `workers=N` | compute ワーカー数を固定する |
-| `gpusync` | 毎フレーム GPU の完了を待ち、GPU 時間を記録する (パイプラインが崩れるので比較用) |
+`exp` flags combine with commas, for example `exp=pacer,burn22`. `npx tsx scripts/scene-quads.ts [seed] [x] [z] [r]` meshes the chunks around a point exactly as the app does and counts faces per pass.
 
-`exp` はカンマ区切りで組み合わせられる (例 `exp=pacer,burn22`)。`npx tsx scripts/scene-quads.ts [seed] [x] [z] [r]` は、指定地点の周囲のチャンクを実際と同じ手順でメッシュ化し、パスごとの面数と、方向カリングや面の結合でどれだけ減らせるかを数える。
+</details>
 
-## 仕組み
+## Acknowledgements
 
-- `src/gen/`: 決定的なワールド生成。マルチノイズの気候 (温度・湿度・大陸性・侵食・奇妙さ) からバイオーム 38 種を選び、3D 密度関数、チーズ洞窟とスパゲッティ洞窟、サーフェスルール、木と植物、村・ピラミッド・塔を生成する。
-- `src/workers/`: owner ワーカー 1 つがチャンクを保持し、compute ワーカー N 個が生成と光計算・メッシュ化を担う。planner ワーカーは飛行経路を計画する。
-- `src/autopilot/`: 経路はシードだけで決まり、地形と木と建物の高さを常に上回る。カメラの状態は弧長 `s` だけなので、後退すると正確に同じ道を戻る。
-- `src/render/`: 自作の GLSL3 シェーダーで描画する。スムースライティングと AO、手続き生成の 16px テクスチャ配列、空、雲、霧、昼夜、天候を持つ。
-  - チャンクの面は向きごとにまとめて格納し、カメラに向き得ない向きの面は描かない (WEBGL_multi_draw で 1 コールにまとめる)。視錐台カリングはチャンクの箱で行う。空は地形の後に遠平面で描き、地形に隠れた画素を GPU に捨てさせる。
-  - フレームの経過時間は画面のリフレッシュ周期の整数倍に丸める (rAF のタイムスタンプの揺れによる動きのガタつきを消す)。重くて 60 fps を保てないときは、まず描画を 2 回に 1 回にして一定の 30 fps にし、それでも足りないときだけ解像度と描画距離を下げる。
+Inspired by the endless zoom of [organiccity.org](https://organiccity.org/). Endless Blocks is an independent project. All of its textures, names and sounds are original and generated in code; it ships no third-party game assets.
 
-テクスチャ、名称、音はすべてオリジナル (コードで生成) で、既存ゲームのアセットは使っていない。
+## License
+
+[MIT](LICENSE) © ponyo877
