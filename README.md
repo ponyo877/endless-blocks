@@ -22,6 +22,8 @@ Open it, lean back, and watch. It runs in your browser, forever.</p>
 &nbsp;·&nbsp;
 <a href="#demo">Demo</a>
 &nbsp;·&nbsp;
+<a href="#play-skim">Play SKIM</a>
+&nbsp;·&nbsp;
 <a href="#how-it-works">How it works</a>
 &nbsp;·&nbsp;
 <a href="#development">Development</a>
@@ -54,6 +56,23 @@ https://github.com/user-attachments/assets/2bc1ce30-9ed6-40be-9376-1f0f27841912
 </table>
 
 All footage is rendered by the app itself. Try the same places with [`?seed=31415`](https://endless-blocks.ponyo877.com/?seed=31415).
+
+## Play: SKIM
+
+**[endless-blocks.ponyo877.com/play/](https://endless-blocks.ponyo877.com/play/)** turns the same world into a score attack. You fly a small block glider and try to stay as close to the terrain as you dare.
+
+- **Score by skimming.** The closer you pass the ground, trees, cliffs and water, the faster points come in. Being boxed in on more sides (a canyon, under a canopy, a cave) multiplies them, and so does speed.
+- **Chain it.** Points build up in a chain that grows its multiplier while you keep skimming. Pull away for a second to bank them; crash first and they are lost.
+- **Mind your lift.** Lift drains in open air and refills near terrain. Climb to safety for too long and you stall.
+- **One world a day.** Everyone gets the same world and the same start each UTC day, with a daily leaderboard. Top runs are re-flown from their input logs to check them.
+
+| Input | PC | Phone | Gamepad |
+| --- | --- | --- | --- |
+| Steer | Mouse (pointer lock) or <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / arrows | Drag anywhere | Left stick |
+| Boost | <kbd>Shift</kbd>, <kbd>Space</kbd> or click (hold) | BOOST button | A / RT |
+| Pause | <kbd>Esc</kbd> / <kbd>P</kbd> | Pause button | Start |
+
+`?seed=N` flies a fixed world instead of the daily one (no leaderboard, personal best only).
 
 ## Controls
 
@@ -121,6 +140,30 @@ npm run preview    # serve the build
 ```
 
 Every push to `main` is tested, built and deployed to GitHub Pages by [`pages.yml`](.github/workflows/pages.yml).
+
+<details>
+<summary><b>The game and its leaderboard</b></summary>
+
+<br>
+
+The game runs a fixed 60 Hz simulation ([`src/game/sim.ts`](src/game/sim.ts)) on collision data that the compute workers ship with every chunk mesh, so what you see is exactly what you hit. The simulation and world generation use only deterministic math ([`src/gen/dmath.ts`](src/gen/dmath.ts)), so an input log replays to the same score anywhere.
+
+The leaderboard is a Cloudflare Worker in [`api/`](api) that keeps its tables in one SQLite-backed Durable Object. Run it locally and point the game at it:
+
+```sh
+npx tsx api/dev/server.mts          # http://localhost:8787, SQLite in memory
+VITE_API_URL=http://localhost:8787 npm run dev
+```
+
+Deploy it with the [`cf`](https://developers.cloudflare.com/cf/) CLI from `api/` (`npx cf deploy --secrets-file .secrets.env`, where the file holds `RUN_SECRET` and `ADMIN_TOKEN`). The site build points the game at it through `VITE_API_URL` in [`pages.yml`](.github/workflows/pages.yml).
+
+Re-fly the top runs of a board and mark them verified or rejected:
+
+```sh
+npx tsx scripts/verify-replay.ts --api <api-url> --board daily-YYYY-MM-DD --admin-token <token>
+```
+
+</details>
 
 <details>
 <summary><b>Profiling</b></summary>
