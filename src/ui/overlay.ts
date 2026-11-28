@@ -53,6 +53,7 @@ export class Overlay {
         <div class="ov-title">ENDLESS BLOCKS</div>
         <div class="ov-place"></div>
       </div>
+      <a class="ov-game" href="play/" title="Fly it yourself: skim the terrain for points">Play SKIM <span>▶</span></a>
       <div class="ov-bar">
         <button class="ov-btn" data-a="play" title="Play / pause (Space)"></button>
         <div class="ov-speed">

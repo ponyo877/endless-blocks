@@ -5,12 +5,19 @@ body.idle, body.idle * { cursor: none !important; }
 
 .overlay { position: fixed; inset: 0; pointer-events: none; }
 .overlay > * { transition: opacity 0.9s ease; }
-body.idle .ov-top, body.idle .ov-bar, body.idle .ov-help,
-body.ui-hidden .ov-top, body.ui-hidden .ov-bar, body.ui-hidden .ov-help { opacity: 0; }
-body.ui-hidden .ov-bar, body.idle .ov-bar { pointer-events: none; }
+body.idle .ov-top, body.idle .ov-bar, body.idle .ov-help, body.idle .ov-game,
+body.ui-hidden .ov-top, body.ui-hidden .ov-bar, body.ui-hidden .ov-help, body.ui-hidden .ov-game { opacity: 0; }
+body.ui-hidden .ov-bar, body.idle .ov-bar, body.ui-hidden .ov-game, body.idle .ov-game { pointer-events: none; }
 
 .ov-top { position: absolute; left: 22px; top: 18px; text-shadow: 0 1px 2px rgba(0,0,0,0.55); }
 .ov-title { font-size: 13px; font-weight: 700; letter-spacing: 0.32em; }
+.ov-game {
+  position: absolute; right: 18px; top: 16px; padding: 8px 14px; border-radius: 10px; pointer-events: auto;
+  background: rgba(14, 16, 22, 0.42); border: 1px solid rgba(255,255,255,0.16); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  color: inherit; text-decoration: none; font-size: 12px; font-weight: 700; letter-spacing: 0.18em;
+}
+.ov-game span { color: #ffd45e; margin-left: 4px; }
+.ov-game:hover { background: rgba(255,255,255,0.14); }
 .ov-place { margin-top: 6px; font-size: 12px; letter-spacing: 0.06em; opacity: 0.82; min-height: 1em; }
 
 .ov-bar {
