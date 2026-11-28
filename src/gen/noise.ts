@@ -137,13 +137,13 @@ export class Octaves {
 
   constructor(rng: Rng, baseFreq: number, amps: number[]) {
     let total = 0;
-    for (let i = 0; i < amps.length; i++) total += amps[i] * Math.pow(0.5, i);
+    for (let i = 0; i < amps.length; i++) total += amps[i] / (1 << i); // exact powers of two
     for (let i = 0; i < amps.length; i++) {
       const perlin = new Perlin(rng);
       if (amps[i] === 0) continue;
       this.layers.push(perlin);
-      this.freqs.push(baseFreq * Math.pow(2, i));
-      this.amps.push((amps[i] * Math.pow(0.5, i)) / total);
+      this.freqs.push(baseFreq * (1 << i));
+      this.amps.push(amps[i] / (1 << i) / total);
     }
   }
 

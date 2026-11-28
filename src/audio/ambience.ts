@@ -314,6 +314,15 @@ export class Ambience {
     return this._enabled;
   }
 
+  /**
+   * The audio context and the bus that sound effects can connect to (it shares the ambience's
+   * volume, enable fade and output chain), or null before the first enable.
+   */
+  get output(): { ctx: AudioContext; bus: AudioNode; pink: AudioBuffer; brown: AudioBuffer } | null {
+    const g = this.g;
+    return g ? { ctx: g.ctx, bus: g.master, pink: g.pink, brown: g.brown } : null;
+  }
+
   async setEnabled(on: boolean): Promise<void> {
     if (this.disposed) return;
     if (on) {

@@ -313,3 +313,15 @@ export function isLeaves(id: number): boolean {
   return id === B.OAK_LEAVES || id === B.BIRCH_LEAVES || id === B.SPRUCE_LEAVES || id === B.JUNGLE_LEAVES ||
     id === B.ACACIA_LEAVES || id === B.DARK_OAK_LEAVES || id === B.CHERRY_LEAVES;
 }
+
+/**
+ * Collision class for the game: 0 = fly through (air, plants, vines, snow layers, lanterns),
+ * 1 = solid, 2 = leaves (solid, but scored and drawn differently), 3 = liquid (water and lava).
+ */
+export const Coll = { PASS: 0, SOLID: 1, LEAVES: 2, LIQUID: 3 } as const;
+export const COLL = new Uint8Array(MAX_BLOCKS);
+for (let id = 0; id < MAX_BLOCKS; id++) {
+  if (id === B.WATER || id === B.LAVA || WATERY[id]) COLL[id] = Coll.LIQUID;
+  else if (isLeaves(id)) COLL[id] = Coll.LEAVES;
+  else if (SOLID[id]) COLL[id] = Coll.SOLID;
+}

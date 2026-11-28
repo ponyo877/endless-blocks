@@ -34,7 +34,7 @@ export class Streamer {
   /** extra points (future path) to prefetch around */
   prefetch: { x: number; z: number }[] = [];
 
-  constructor(readonly seed: number, readonly renderer: ChunkRenderer, radius: number, workers = 0) {
+  constructor(readonly seed: number, readonly renderer: ChunkRenderer, radius: number, workers = 0, collision = false) {
     this.radius = radius;
     const n = workers || Math.max(2, Math.min(6, (navigator.hardwareConcurrency || 4) - 2));
     this.owner = new Worker(new URL('../workers/owner.worker.ts', import.meta.url), { type: 'module' });
@@ -42,7 +42,7 @@ export class Streamer {
     for (let i = 0; i < n; i++) {
       const w = new Worker(new URL('../workers/compute.worker.ts', import.meta.url), { type: 'module' });
       const ch = new MessageChannel();
-      w.postMessage({ type: 'init', seed, port: ch.port2 }, [ch.port2]);
+      w.postMessage({ type: 'init', seed, port: ch.port2, collision }, [ch.port2]);
       ports.push(ch.port1);
       w.onmessage = (e: MessageEvent) => {
         const d = e.data as MeshResult;

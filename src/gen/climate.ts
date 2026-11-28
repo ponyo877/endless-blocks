@@ -1,5 +1,6 @@
 import { DoubleNoise, Octaves } from './noise';
 import { Rng, hash32 } from './rng';
+import { dexp } from './dmath';
 
 // Multi-noise climate: temperature, humidity, continentalness, erosion, weirdness (-> peaks & valleys).
 // Raw noise values are "uniformised" through a normal CDF so thresholds read as area fractions.
@@ -30,7 +31,7 @@ function erf(x: number): number {
   const s = x < 0 ? -1 : 1;
   x = Math.abs(x);
   const t = 1 / (1 + 0.3275911 * x);
-  const y = 1 - ((((1.061405429 * t - 1.453152027) * t + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-x * x);
+  const y = 1 - ((((1.061405429 * t - 1.453152027) * t + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * dexp(-x * x);
   return s * y;
 }
 

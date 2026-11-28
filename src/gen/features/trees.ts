@@ -1,5 +1,6 @@
 import { B, REPLACEABLE, isLeaves } from '../blocks';
 import { Rng } from '../rng';
+import { dcos, dsin } from '../dmath';
 
 // Tree & large-feature builders. Every builder draws its shape parameters from the rng FIRST
 // (in params()), so extent() can compute bounds without building — the planner uses that.
@@ -216,8 +217,8 @@ export function buildTree(p: Placement, w: Writer): void {
         const ang = rng.next() * Math.PI * 2;
         const len = rng.range(2, 4);
         const by = y + Math.floor(k.h * rng.range(0.45, 0.8));
-        const ex = Math.round(x + Math.cos(ang) * len);
-        const ez = Math.round(z + Math.sin(ang) * len);
+        const ex = Math.round(x + dcos(ang) * len);
+        const ez = Math.round(z + dsin(ang) * len);
         const ey = by + Math.round(len * 0.7);
         const steps = Math.ceil(len) + 1;
         for (let s = 0; s <= steps; s++) {
@@ -411,8 +412,8 @@ export function buildTree(p: Placement, w: Writer): void {
         }
         for (let i = 0; i < 8; i++) {
           const a = rng.next() * Math.PI * 2;
-          const hx = Math.round(bx + Math.cos(a) * 3.4);
-          const hz = Math.round(bz + Math.sin(a) * 3.4);
+          const hx = Math.round(bx + dcos(a) * 3.4);
+          const hz = Math.round(bz + dsin(a) * 3.4);
           const len = rng.irange(1, 2);
           for (let kk = 2; kk <= len + 1; kk++) setLeaf(w, hx, by - kk, hz, B.CHERRY_LEAVES);
         }

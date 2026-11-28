@@ -3,60 +3,21 @@ import { Ambience } from './audio/ambience';
 import { Autopilot } from './autopilot/camera';
 import { PathLog } from './autopilot/path';
 import { readConfig } from './config';
-import { B, isLeaves } from './gen/blocks';
-import { BIOMES } from './gen/climate';
 import { CHUNK } from './gen/constants';
-import { createTerrainUniforms } from './render/chunkMaterial';
-import { ChunkRenderer } from './render/chunkRenderer';
-import { Clouds } from './render/clouds';
-import { Environment } from './render/environment';
-import { Pacer } from './render/quality';
-import { Sky } from './render/sky';
-import { Streamer } from './render/streamer';
-import { createTextureArrays } from './render/textureArray';
-import { generateTextures } from './render/textures';
-import { Precipitation, Weather } from './render/weather';
+import { World } from './engine/world';
 import { MAX_SPEED, Overlay } from './ui/overlay';
 import { Profiler } from './debug/profiler';
 
 const cfg = readConfig();
 const BENCH = cfg.bench > 0;
 const prof = new Profiler();
-const PRE_ROLL = 1500;
-const LEAF_LOD = 88; // blocks: alpha-tested leaves inside, solid leaves beyond // blocks of path behind the start, so reverse works right away
+const PRE_ROLL = 1500; // blocks of path behind the start, so reverse works right away
 
-// ------------------------------------------------------------------ renderer & scene
+// ------------------------------------------------------------------ world
 const canvas = document.getElementById('view') as HTMLCanvasElement;
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
-const basePixelRatio = Math.min(1.5, window.devicePixelRatio || 1);
-renderer.setPixelRatio(basePixelRatio);
-renderer.setSize(window.innerWidth, window.innerHeight, false);
-renderer.autoClear = false;
-
-const scene = new THREE.Scene();
-scene.matrixAutoUpdate = false;
-const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.15, 1000);
-
-const uniforms = createTerrainUniforms();
-uniforms.uWaterAlpha.value = 0.8;
-const texSet = generateTextures();
-const { color: texColor, mask: texMask } = createTextureArrays(texSet);
-uniforms.uTex.value = texColor;
-uniforms.uMask.value = texMask;
-
-const chunks = new ChunkRenderer(uniforms);
-scene.add(chunks.group);
-const streamer = new Streamer(cfg.seed, chunks, cfg.renderDistance, cfg.workers);
-const sky = new Sky(texColor);
-scene.add(sky.root);
-const clouds = new Clouds(cfg.seed);
-scene.add(clouds.group);
-const precip = new Precipitation();
-scene.add(precip.rainMesh, precip.snowMesh);
-const env = new Environment();
-const weather = new Weather();
+const world = new World(canvas, { seed: cfg.seed, renderDistance: cfg.renderDistance, workers: cfg.workers });
+const { renderer, scene, camera, uniforms, chunks, streamer, sky, clouds, precip, env, weather, pacer } = world;
 weather.locked = BENCH;
-const pacer = new Pacer();
 const burnMs = Number([...cfg.exp].find((e) => e.startsWith('burn'))?.slice(4) ?? 0) || 0;
 const ambience = new Ambience();
 
@@ -182,30 +143,12 @@ window.addEventListener(
   { passive: false },
 );
 
-function resize(): void {
-  renderer.setSize(window.innerWidth, window.innerHeight, false);
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
-}
-window.addEventListener('resize', resize);
-
-// ------------------------------------------------------------------ context loss
-let contextLost = false;
-canvas.addEventListener('webglcontextlost', (e) => {
-  e.preventDefault();
-  contextLost = true;
-});
-canvas.addEventListener('webglcontextrestored', () => {
-  contextLost = false;
-  chunks.clear(); // vertex arrays were released after upload; re-request everything
-});
+window.addEventListener('resize', () => world.resize());
 
 // ------------------------------------------------------------------ helpers
 const tmpP = { x: 0, y: 0, z: 0 };
 const look = new THREE.Vector3();
-const viewDir = new THREE.Vector3();
 const prefetchPts: { x: number; z: number }[] = [];
-const skyTemp = { v: 0.6 };
 
 /** distance along the path (in travel direction) whose 3x3 chunk corridor is meshed */
 function readyDistance(dir: number, maxD: number): number {
@@ -218,69 +161,11 @@ function readyDistance(dir: number, maxD: number): number {
   return maxD;
 }
 
-function ringFraction(r: number): number {
-  const cx = Math.floor(camera.position.x / CHUNK);
-  const cz = Math.floor(camera.position.z / CHUNK);
-  let n = 0;
-  let have = 0;
-  for (let dz = -r; dz <= r; dz++) {
-    for (let dx = -r; dx <= r; dx++) {
-      if (dx * dx + dz * dz > r * r) continue;
-      n++;
-      if (chunks.has(cx + dx, cz + dz)) have++;
-    }
-  }
-  return have / n;
-}
-
-// ambience/biome sampling (a few times per second)
-const area = { water: 0, forest: 0, ground: 64, biome: 1, kind: 'none' as 'rain' | 'snow' | 'none', name: '' };
-let areaTimer = 0;
-function sampleArea(): void {
-  const cx = camera.position.x;
-  const cz = camera.position.z;
-  let n = 0;
-  let water = 0;
-  let forest = 0;
-  for (let j = -3; j <= 3; j++) {
-    for (let i = -3; i <= 3; i++) {
-      const c = chunks.columnAt(cx + i * 10, cz + j * 10);
-      if (!c) continue;
-      n++;
-      if (c.top === B.WATER || c.top === B.ICE) water++;
-      else if (isLeaves(c.top)) forest++;
-    }
-  }
-  if (n) {
-    area.water = water / n;
-    area.forest = forest / n;
-  }
-  const c = chunks.columnAt(cx, cz);
-  if (c) {
-    area.ground = c.height;
-    area.biome = c.biome;
-    const info = BIOMES[c.biome];
-    area.kind = info ? info.precip : 'rain';
-    // high mountains get snow instead of rain
-    if (area.kind === 'rain' && camera.position.y > 200 && info && info.temp < 0.6) area.kind = 'snow';
-    area.name = info ? info.name : '';
-  }
-}
-
-function timeWord(t: number): string {
-  if (t < 0.04 || t > 0.96) return 'Dawn';
-  if (t < 0.2) return 'Morning';
-  if (t < 0.42) return 'Day';
-  if (t < 0.54) return 'Evening';
-  return 'Night';
-}
-
 // ------------------------------------------------------------------ frame loop
 let started = false;
 let flightTime = 0;
 let clock = 0;
 let timeOffset = 0;
-let fogR = streamer.radius * CHUNK;
 let fps = 0;
 let fpsAcc = 0;
 let fpsN = 0;
@@ -301,7 +186,7 @@ function frame(now: number): void {
   const t0 = performance.now();
   const dt = pacer.frameDt(now);
   const rawMs = pacer.lastInterval;
-  if (contextLost) return;
+  if (world.contextLost) return;
   clock += dt;
   fpsAcc += dt;
   fpsN++;
@@ -339,11 +224,10 @@ function frame(now: number): void {
   }
   pilot.pose(camera);
   camera.updateMatrixWorld();
-  camera.getWorldDirection(viewDir);
 
   prof.mark(1);
   if (!started) {
-    const ring = ringFraction(Math.min(R, 6));
+    const ring = world.ringFraction(Math.min(R, 6));
     const prog = 0.3 + 0.7 * Math.min(ring, dReady / 96);
     overlay.setLoading(prog);
     if (ring >= 1 && dReady >= 96) {
@@ -353,32 +237,12 @@ function frame(now: number): void {
   }
 
   // world sampling for biome / ambience
-  areaTimer -= dt;
-  if (areaTimer <= 0) {
-    areaTimer = 0.25;
-    sampleArea();
-  }
-  const info = BIOMES[area.biome];
-  if (info) skyTemp.v += (info.temp - skyTemp.v) * Math.min(1, dt * 0.2);
+  world.sampleArea(dt);
 
-  // time, weather, environment
+  // time, weather, environment, fog
   const dayPos = cfg.startTime + timeOffset + (BENCH ? 0 : clock / cfg.dayLength);
   const time = ((dayPos % 1) + 1) % 1;
-  weather.update(dt, area.kind);
-  env.update({ time, rain: weather.rain, thunder: weather.thunder, flash: weather.flash, skyTemp: skyTemp.v, viewDir });
-
-  // fog follows the (possibly changing) render distance smoothly
-  const targetFog = R * CHUNK;
-  fogR += (targetFog - fogR) * Math.min(1, dt / 3);
-  const wet = Math.max(weather.rainVis, weather.snowVis);
-  uniforms.uFogStart.value = fogR * (0.7 - wet * 0.3);
-  uniforms.uFogEnd.value = fogR * (0.97 - wet * 0.12);
-  uniforms.uFogColor.value.copy(env.fogColor);
-  uniforms.uSkyLight.value.copy(env.skyLight);
-  uniforms.uFrame.value = Math.floor(clock / 0.16) % 16;
-  uniforms.uViewRotInv.value.setFromMatrix4(camera.matrixWorld);
-  camera.far = fogR * 2.2 + 64;
-  camera.updateProjectionMatrix();
+  world.updateEnvironment(dt, time, clock);
 
   prof.mark(2);
   // streaming: centre priorities ahead of us along the path, prefetch a bit further
@@ -390,18 +254,13 @@ function frame(now: number): void {
     const p = path.sample(pilot.s + dir * d, tmpP);
     prefetchPts.push({ x: p.x, z: p.z });
   }
-  streamer.prefetch = prefetchPts;
-  streamer.update(camera, look, now);
+  world.stream(look, prefetchPts, now);
   prof.mark(3);
-  const nUploads = chunks.processUploads(started ? 5 : 12, started ? 1.5e6 : 6e6, () => true);
-  chunks.update(camera, LEAF_LOD, Math.max(LEAF_LOD, fogR * 0.8));
+  const nUploads = world.uploadAndCull(started);
   prof.mark(4);
 
   // sky, clouds, precipitation
-  sky.rain = weather.rain;
-  sky.update(camera, env, time, Math.floor(dayPos), renderer.getPixelRatio());
-  clouds.update(camera.position, dt, env.cloudColor, env.fogColor, fogR, 0.8 * (1 - weather.rain * 0.25));
-  precip.update(camera.position, dt, weather, env.skyLight);
+  world.updateSky(dt, time, Math.floor(dayPos));
 
   prof.mark(5);
   if (cfg.exp.size) {
@@ -410,8 +269,7 @@ function frame(now: number): void {
     // simulated slow frames (e.g. exp=burn22): busy-wait to test pacing
     if (burnMs > 0) for (const t1 = performance.now(); performance.now() - t1 < burnMs; );
   }
-  renderer.clear();
-  renderer.render(scene, camera);
+  world.render();
   let gpuMs = 0;
   if (cfg.gpuSync && prof.recording) {
     const g0 = performance.now();
@@ -425,36 +283,15 @@ function frame(now: number): void {
   prof.mark(6);
 
   // ambience
-  if (ambience.enabled) {
-    ambience.update(
-      {
-        altitude: Math.max(0, camera.position.y - area.ground),
-        rain: weather.rainVis,
-        snow: weather.snowVis,
-        thunder: weather.thunder * (area.kind === 'none' ? 0.3 : 1),
-        day: env.day,
-        water: area.water,
-        forest: area.forest,
-        warmth: info ? info.temp : 0.5,
-        speed: pilot.v,
-      },
-      dt,
-    );
-  }
+  if (ambience.enabled) ambience.update(world.ambienceState(pilot.v), dt);
 
   // UI
   overlay.tick(dt);
   overlay.setSpeed(pilot.requested, pilot.v);
-  const wx = weather.snowVis > 0.3 ? ' · Snow' : weather.rainVis > 0.3 ? (weather.thunder > 0.5 ? ' · Thunderstorm' : ' · Rain') : '';
-  overlay.setPlace(`${area.name} · ${timeWord(time)}${wx}`);
+  overlay.setPlace(world.placeLabel(time));
 
   // frame rate divisor first, then render scale and distance
-  if (pacing && pacer.update(dt)) {
-    const q = pacer.current;
-    renderer.setPixelRatio(basePixelRatio * q.scale);
-    renderer.setSize(window.innerWidth, window.innerHeight, false);
-    streamer.radius = Math.max(6, cfg.renderDistance + q.rdDelta);
-  }
+  if (pacing) world.adaptQuality(dt);
 
   if (debug) {
     const st = streamer.stats;
@@ -463,7 +300,7 @@ function frame(now: number): void {
       `fps ${fps.toFixed(0)} cpu ${cpuMs.toFixed(1)}ms  miss ${(pacer.missRate * 100).toFixed(0)}%  q${pacer.level} (1/${pacer.current.div} of ${(1000 / pacer.period).toFixed(0)}Hz x${pacer.current.scale} rd ${streamer.radius})\n` +
       `pos ${p.x.toFixed(0)} ${p.y.toFixed(0)} ${p.z.toFixed(0)}  s ${pilot.s.toFixed(0)} / ${path.length}\n` +
       `v ${pilot.v.toFixed(1)} req ${pilot.requested.toFixed(1)} ready ${dReady} (${pilot.readiness.toFixed(2)})\n` +
-      `biome ${info ? info.name : '?'}  time ${time.toFixed(3)}  wx ${weather.state} ${weather.rain.toFixed(2)}\n` +
+      `biome ${world.biomeInfo?.name ?? '?'}  time ${time.toFixed(3)}  wx ${weather.state} ${weather.rain.toFixed(2)}\n` +
       `meshes ${chunks.entries.size} pending ${chunks.pendingCount} geo ${renderer.info.memory.geometries} tex ${renderer.info.memory.textures} calls ${renderer.info.render.calls}\n` +
       (st ? `owner ${st.chunks} gen ${st.gen} (${(st.genMs / Math.max(1, st.gen)).toFixed(1)}ms) mesh ${st.mesh} (${(st.meshMs / Math.max(1, st.mesh)).toFixed(1)}ms) cred ${st.credits} fly ${st.inFlight}` : '') +
       ((performance as unknown as { memory?: { usedJSHeapSize: number } }).memory

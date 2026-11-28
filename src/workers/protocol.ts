@@ -51,6 +51,8 @@ export interface MeshResult {
   heights: Int16Array;
   topIds: Uint8Array;
   biomes: Uint8Array;
+  /** game mode only: collision classes of the centre chunk (see mesh/collision.ts) */
+  coll?: Uint8Array;
 }
 
 /** main -> owner: chunks main wants meshes for, in priority order (flat [cx,cz,...]) */

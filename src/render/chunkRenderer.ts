@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { CHUNK } from '../gen/constants';
+import { CollisionChunk } from '../mesh/collision';
 import { NGROUPS } from '../mesh/mesher';
 import type { MeshResult } from '../workers/protocol';
 import { ckey } from '../workers/protocol';
@@ -75,6 +76,8 @@ export interface ChunkEntry {
   minY: number;
   maxY: number;
   box: THREE.Box3;
+  /** game mode: collision classes, present exactly while the chunk is drawn */
+  coll: CollisionChunk | null;
 }
 
 function disposeArray(this: THREE.BufferAttribute): void {
@@ -200,6 +203,7 @@ export class ChunkRenderer {
     const entry: ChunkEntry = {
       cx: res.cx, cz: res.cz, meshes, opaque, translucent, leaves, plants, near: false,
       heights: res.heights, topIds: res.topIds, biomes: res.biomes, minY, maxY,
+      coll: res.coll ? new CollisionChunk(res.coll) : null,
       box: new THREE.Box3(new THREE.Vector3(x0, minY, z0), new THREE.Vector3(x0 + CHUNK, maxY, z0 + CHUNK)),
     };
     for (const m of meshes) m.visible = false; // until the next update()

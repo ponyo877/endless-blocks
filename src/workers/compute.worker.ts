@@ -2,6 +2,7 @@
 import { CHUNK } from '../gen/constants';
 import { GenContext, createContext, generateChunk } from '../gen/generateChunk';
 import { computeLight } from '../mesh/light';
+import { encodeCollision } from '../mesh/collision';
 import { buildMesh } from '../mesh/mesher';
 import { RA, RC, RW } from '../mesh/region';
 import { computeTints } from '../mesh/tints';
@@ -11,6 +12,8 @@ declare const self: DedicatedWorkerGlobalScope;
 
 let ctx: GenContext | null = null;
 let ownerPort: MessagePort | null = null;
+/** game mode: ship collision classes with every mesh */
+let collision = false;
 let lightBuf = new Uint8Array(0);
 
 const tints = new Uint8Array(256 * 9);
@@ -53,7 +56,12 @@ function doMesh(job: MeshJob): void {
     opaque: m.opaque, cutout: m.cutout, translucent: m.translucent, leaves: m.leaves, groups: m.groups, minY: m.minY, maxY: m.maxY,
     heights, topIds, biomes,
   };
-  self.postMessage(res, [m.opaque.buffer, m.cutout.buffer, m.translucent.buffer, m.leaves.buffer, m.groups.buffer, heights.buffer, topIds.buffer, biomes.buffer]);
+  const transfer: Transferable[] = [m.opaque.buffer, m.cutout.buffer, m.translucent.buffer, m.leaves.buffer, m.groups.buffer, heights.buffer, topIds.buffer, biomes.buffer];
+  if (collision) {
+    res.coll = encodeCollision(region, H);
+    transfer.push(res.coll.buffer);
+  }
+  self.postMessage(res, transfer);
   const done: MeshDone = { type: 'meshDone', cx, cz, ms: performance.now() - t0 };
   ownerPort!.postMessage(done);
 }
@@ -63,6 +71,7 @@ self.onmessage = (e: MessageEvent) => {
   if (d.type === 'init') {
     ctx = createContext(d.seed);
     ownerPort = d.port as MessagePort;
+    collision = !!d.collision;
     ownerPort.onmessage = (ev: MessageEvent) => {
       const job = ev.data as GenJob | MeshJob;
       if (job.type === 'gen') doGen(job);

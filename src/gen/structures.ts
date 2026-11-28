@@ -4,6 +4,7 @@ import { CHUNK, SEA } from './constants';
 import type { Writer } from './features/trees';
 import { Rng, hash32 } from './rng';
 import type { Terrain } from './terrain';
+import { datan2, dcos, dhypot, dsin } from './dmath';
 
 // Sparse hand-made structures: small villages, desert pyramids and ruined watchtowers.
 // One candidate per GRID x GRID chunk cell; a plan is a pure function of (seed, cell) and the
@@ -163,7 +164,7 @@ export class Structures {
         if (!s || s.type !== SType.VILLAGE) continue;
         const key = (gx + dx + 65536) * 131072 + (gz + dz + 65536);
         if (skip && skip.has(key)) continue;
-        const d = Math.hypot(s.x - x, s.z - z);
+        const d = dhypot(s.x - x, s.z - z);
         if (!best || d < best.d) best = { x: s.x, z: s.z, d, key };
       }
     }
@@ -189,7 +190,7 @@ export class Structures {
     let hi = top;
     for (let i = 0; i < 8; i++) {
       const a = (i / 8) * Math.PI * 2;
-      const h = t.columnTop(Math.round(x + Math.cos(a) * 22), Math.round(z + Math.sin(a) * 22));
+      const h = t.columnTop(Math.round(x + dcos(a) * 22), Math.round(z + dsin(a) * 22));
       lo = Math.min(lo, h);
       hi = Math.max(hi, h);
     }
@@ -236,8 +237,8 @@ export class Structures {
       const d = 13 + rng.int(22) + (i > n ? 8 : 0);
       const w = 5 + rng.int(3);
       const dd = 5 + rng.int(3);
-      const hx = Math.round(cx + Math.cos(a) * d - w / 2);
-      const hz = Math.round(cz + Math.sin(a) * d - dd / 2);
+      const hx = Math.round(cx + dcos(a) * d - w / 2);
+      const hz = Math.round(cz + dsin(a) * d - dd / 2);
       const box = { x0: hx, z0: hz, x1: hx + w - 1, z1: hz + dd - 1, top: 0 };
       if (taken.some((b) => overlaps(b, box, 3))) continue;
       // ground: highest corner, all corners within reach
@@ -283,8 +284,8 @@ export class Structures {
       const alongX = rng.chance(0.5);
       const w = alongX ? 9 : 7;
       const dd = alongX ? 7 : 9;
-      const fx = Math.round(cx + Math.cos(a) * d - w / 2);
-      const fz = Math.round(cz + Math.sin(a) * d - dd / 2);
+      const fx = Math.round(cx + dcos(a) * d - w / 2);
+      const fz = Math.round(cz + dsin(a) * d - dd / 2);
       const box = { x0: fx, z0: fz, x1: fx + w - 1, z1: fz + dd - 1, top: 0 };
       if (taken.some((b) => overlaps(b, box, 2))) continue;
       const h = t.columnTop(fx + (w >> 1), fz + (dd >> 1));
@@ -560,15 +561,15 @@ export class Structures {
     const H = s.height;
     for (let dz = -4; dz <= 4; dz++) {
       for (let dx = -4; dx <= 4; dx++) {
-        const d = Math.hypot(dx, dz);
+        const d = dhypot(dx, dz);
         if (d > 3.6) continue;
         const x = s.x + dx;
         const z = s.z + dz;
         this.foundation(w, x, z, y0, B.STONE_BRICKS);
         const wall = d > 2.4;
         // ruined top: wall height varies around the rim
-        const ang = Math.atan2(dz, dx);
-        const ruin = Math.floor(2.5 + 2.5 * Math.sin(ang * 2 + (s.seed % 7)) + 1.5 * Math.sin(ang * 5 + (s.seed % 3)));
+        const ang = datan2(dz, dx);
+        const ruin = Math.floor(2.5 + 2.5 * dsin(ang * 2 + (s.seed % 7)) + 1.5 * dsin(ang * 5 + (s.seed % 3)));
         const hh = wall ? H - Math.max(0, ruin) : 0;
         for (let y = y0; y < y0 + Math.max(hh, 1); y++) {
           if (!wall && y > y0) {

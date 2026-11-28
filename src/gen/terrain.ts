@@ -2,6 +2,7 @@ import { CELL_XZ, CELL_Y, CORNERS_Y, HEIGHT, SEA } from './constants';
 import { Biome, C_COAST, C_MUSHROOM, C_OCEAN, Climate, ClimateSample, mountainFactor, newClimate, pickBiome, smooth } from './climate';
 import { Octaves } from './noise';
 import { Rng, hash32 } from './rng';
+import { dpow } from './dmath';
 
 // Terrain density sampled on a 4 x 8 x 4 cell lattice ("corner columns" every 4 blocks)
 // and trilinearly interpolated, as in modern voxel-game generators. All functions are pure
@@ -78,7 +79,7 @@ export class Terrain {
 
     const m = mountainFactor(c, e);
     const peak = Math.max(0, pv);
-    H += m * (Math.pow(peak, 1.15) * 128 + 12);
+    H += m * (dpow(peak, 1.15) * 128 + 12);
 
     // jagged peaks
     const J = m * smooth(0.55, 0.92, pv);
